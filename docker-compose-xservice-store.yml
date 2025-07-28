@@ -12,7 +12,8 @@ services:
       - /root/app/init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
     env_file:
       - .env
-    network_mode: host
+    networks:
+      - elantar_net
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
       interval: 5s
