@@ -20,9 +20,10 @@ services:
       timeout: 5s
       retries: 10
   n8n:
-    image: n8nio/n8n
+    image: n8nio/n8n:latest
     container_name: n8n
     restart: always
+    command: n8n start
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.n8n.rule=Host(`n8n.xservice.store`)"
