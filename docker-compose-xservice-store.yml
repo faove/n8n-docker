@@ -1,15 +1,27 @@
 version: "3.8"
 
 services:
+  postgres:
+    container_name: postgres
+    image: postgres:16.9
+    restart: always
+    volumes:
+      - type: bind
+        source: /var/lib/postgresql/data
+        target: /var/lib/postgresql/data
+      - /root/app/init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
+    env_file:
+      - .env
+    network_mode: host
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
   n8n:
     image: n8nio/n8n
     container_name: n8n
-    environment:
-      - N8N_HOST=n8n.xservice.store
-      - N8N_PORT=5678
-      - WEBHOOK_TUNNEL_URL=https://n8n.xservice.store
-      - N8N_PROTOCOL=https
-      - N8N_SECURE_COOKIE=true
+    restart: always
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.n8n.rule=Host(`n8n.xservice.store`)"
@@ -22,7 +34,11 @@ services:
       - elantar_net
     volumes:
       - n8n_data:/home/node/.n8n
-    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 networks:
   elantar_net:
