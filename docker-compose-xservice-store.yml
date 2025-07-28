@@ -37,6 +37,9 @@ services:
       - n8n_data:/home/node/.n8n
     env_file:
       - .env
+    environment:
+      - DB_POSTGRESDB_HOST=postgres
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
     depends_on:
       postgres:
         condition: service_healthy
