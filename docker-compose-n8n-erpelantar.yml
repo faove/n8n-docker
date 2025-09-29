@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  postgres:
+    container_name: postgres
+    image: postgres:16.9
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - /root/app/init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
+    env_file:
+      - .env
+    networks:
+      - elantar_net
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.erpelantar.com`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls.certresolver=letsencrypt"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+    ports:
+      - "5678:5678"
+    networks:
+      - elantar_net
+    volumes:
+      - n8n_data:/home/node/.n8n
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+networks:
+  elantar_net:
+    external: true
+
+volumes:
+  n8n_data:
+  postgres_data:
