@@ -67,6 +67,15 @@ services:
     networks:
       - elantar_net
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: always
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - elantar_net
+
 networks:
   elantar_net:
     external: true
@@ -75,3 +84,4 @@ volumes:
   n8n_data:
   postgres_data:
   qdrant_data:
+  ollama_data:
