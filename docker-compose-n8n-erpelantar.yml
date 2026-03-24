@@ -2,9 +2,12 @@ version: "3.8"
 
 services:
   postgres:
-    container_name: postgres
+    container_name: n8n-db-erpelantar
     image: postgres:16.9
     restart: always
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - /root/app/init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
@@ -22,6 +25,9 @@ services:
     image: n8nio/n8n:latest
     container_name: n8n
     restart: always
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.n8n.rule=Host(`n8n.erpelantar.com`)"
@@ -34,6 +40,15 @@ services:
       - elantar_net
     volumes:
       - n8n_data:/home/node/.n8n
+      - /opt/odoo-backup:/opt/odoo-backup:ro
+      - /var/www/html/n8n-docker/n8n_data/.n8n-files:/home/node/.n8n-files
+    environment:
+      - N8N_BLOCK_FS_READ_ACCESS=false
+      - N8N_BLOCK_FS_WRITE_ACCESS=false
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
+      - N8N_FILESYSTEM_PATH_WHITELIST=/opt/odoo-backup/backupszip/
+      - N8N_BLOCK_NODES=
+      - NODES_EXCLUDE=[]
     env_file:
       - .env
     depends_on:
