@@ -20,3 +20,6 @@ N8N_RUNNERS_ENABLED=true
 NODE_ENV=production
 N8N_HOST=n8n.erpelantar.com
 N8N_EDITOR_BASE_URL=https://n8n.erpelantar.com
+
+# QDRANT ENV
+QDRANT_API_KEY=your_secure_api_key_here
