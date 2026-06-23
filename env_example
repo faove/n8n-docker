@@ -21,5 +21,12 @@ NODE_ENV=production
 N8N_HOST=n8n.erpelantar.com
 N8N_EDITOR_BASE_URL=https://n8n.erpelantar.com
 
+# SECURITY ENV
+N8N_SECURE_COOKIE=true
+N8N_BLOCK_ENV_ACCESS_IN_NODE=true
+N8N_DIAGNOSTICS_ENABLED=false
+N8N_PERSONALIZATION_ENABLED=false
+WEBHOOK_CORS_ALLOWED_ORIGIN=https://dashboard.erpelantar.com
+
 # QDRANT ENV
 QDRANT_API_KEY=your_secure_api_key_here
