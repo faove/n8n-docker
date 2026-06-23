@@ -1,0 +1,640 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "suport_tech",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        -368
+      ],
+      "id": "0e047816-0598-4436-8f25-79f90d3b9f27",
+      "name": "Webhook",
+      "webhookId": "b8467616-0b63-4b5d-a408-3518bf794ed6"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.active_specialist }}",
+              "value2": "bot"
+            },
+            {
+              "value1": "={{ $json.body.active_specialist }}",
+              "value2": "false"
+            },
+            {
+              "value1": "={{ $json.body.active_specialist }}",
+              "value2": "ventas"
+            }
+          ]
+        },
+        "combineOperation": "any"
+      },
+      "id": "a75f759a-8be4-4d26-84bb-67853e4a695f",
+      "name": "Tiene_Especialista",
+      "position": [
+        912,
+        -368
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://elantar_odoo_dev:8069/n8n_bridge/update_state",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "f806557e-e14c-4f5a-869c-e951e3685116",
+      "name": "Actualizar_Estado_Odoo",
+      "position": [
+        1712,
+        -368
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "JNXqvGmRM2SaOzgl",
+          "name": "Soporte Tech"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const nodeWebhook = $node[\"Webhook\"];\n  const nodeGrouping = $node[\"Agrupar_Mensajes_V2\"];\n  const nodeIA = $(\"IA_Analisis_Total\");\n\n  const webhookBody = (nodeWebhook && nodeWebhook.json && nodeWebhook.json.body) ? nodeWebhook.json.body : {};\n  const historyBody = (nodeGrouping && nodeGrouping.json && nodeGrouping.json.body) ? nodeGrouping.json.body : {};\n  \n  let contextData = webhookBody.context_data || {};\n\n  // --- CORRECCIÓN DE DATOS ESCAPADOS ---\n  // Si Odoo nos envía el contexto como un String, lo convertimos a Objeto\n  if (typeof contextData === 'string') {\n    try {\n      contextData = JSON.parse(contextData);\n    } catch (e) {\n      contextData = { name: \"Invitado\" };\n    }\n  }\n\n  let finalSpecialist = historyBody.active_specialist || \"ventas\";\n  let detectedName = contextData.name || \"Invitado\";\n\n  // Procesar resultado de la IA si existe\n  if (nodeIA && nodeIA.isExecuted) {\n    const rawText = (nodeIA.first().json.text || \"{}\");\n    const cleanJson = rawText.replace(/```json/g, \"\").replace(/```/g, \"\").trim();\n    try {\n      const iaResult = JSON.parse(cleanJson);\n      if (iaResult.nombre_detectado && iaResult.nombre_detectado !== \"Invitado\") {\n        detectedName = iaResult.nombre_detectado;\n      }\n      finalSpecialist = iaResult.categoria || finalSpecialist;\n    } catch (err) { /* ignore */ }\n  }\n\n  return [{\n    json: {\n      specialist: finalSpecialist.toLowerCase().trim(),\n      history: historyBody.body || \"\",\n      res_id: webhookBody.res_id || 0,\n      context_data: contextData // Ahora es un objeto limpio\n    }\n  }];\n} catch (error) {\n  return [{ json: { error: error.message, location: \"Preparar_Datos_Especialista\" } }];\n}"
+      },
+      "id": "0d2b2319-48a7-4dba-9ab4-27f8cad447df",
+      "name": "Preparar_Datos_Especialista",
+      "position": [
+        1936,
+        -368
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "a0907cdf-3b47-43d4-a9f3-9bca9d1c8ed5",
+      "name": "Debounce_Wait_10s",
+      "position": [
+        240,
+        -368
+      ],
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "webhookId": "383ae8ed-aa50-4374-aba5-2f22e0696057",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://elantar_odoo_dev:8069/n8n_bridge/search_resource",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \n  \"jsonrpc\": \"2.0\", \n  \"params\": { \n    \"model\": \"mail.message\", \n    \"domain\": [\n      [ \"res_id\", \"=\", $json.body.res_id ], \n      [ \"model\", \"=\", \"discuss.channel\" ]\n    ], \n    \"fields\": [\"id\", \"body\", \"author_id\", \"author_guest_id\"], \n    \"limit\": 80, \n    \"order\": \"id desc\" \n  } \n}) }}",
+        "options": {}
+      },
+      "id": "4572b85f-851f-4d4b-9506-f74b661b5b55",
+      "name": "Obtener_Mensajes_Odoo_V2",
+      "position": [
+        464,
+        -368
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "JNXqvGmRM2SaOzgl",
+          "name": "Soporte Tech"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const webhookData = $node[\"Webhook\"].json.body || {};\n  const response = $node[\"Obtener_Mensajes_Odoo_V2\"].json || {};\n  const messages = (response.result && response.result.result) ? response.result.result : [];\n\n  // 1. Filtrado de mensajes del sistema (OdooBot, notificaciones, etc.)\n  const botPartnerId = 43; // Reemplaza por tu ID de Partner Bot si es distinto\n  \n  const relevantMessages = messages.filter(m => {\n    const body = m.body || \"\";\n    if (body.includes(\"o_mail_notification\") || body.includes(\"abandonó la conversación\")) return false;\n    if (Array.isArray(m.author_id) && m.author_id[0] === botPartnerId) return false;\n    return true;\n  }).sort((a, b) => a.id - b.id);\n\n  // 2. Agrupación con roles claros\n  const groupedBody = relevantMessages.map(m => {\n    let emisor = \"Usuario\";\n    if (Array.isArray(m.author_id) && m.author_id[1]) emisor = m.author_id[1];\n    else if (Array.isArray(m.author_guest_id) && m.author_guest_id[1]) emisor = m.author_guest_id[1];\n    \n    // Limpieza agresiva de HTML de Odoo\n    const textoLimpio = (m.body || \"\")\n      .replace(/<[^>]*>/g, \"\")\n      .replace(/&nbsp;/g, \" \")\n      .replace(/\\n/g, \" \")\n      .trim();\n      \n    return `${emisor.toUpperCase()}: ${textoLimpio}`;\n  }).join(\"\\n\");\n\n  return [{ json: { \n    body: { \n      body: groupedBody, \n      res_id: webhookData.res_id || 0, \n      active_specialist: String(webhookData.active_specialist || \"false\").toLowerCase() \n    } \n  } }];\n} catch (error) {\n  return [{ json: { error: error.message } }];\n}\n"
+      },
+      "id": "11e160a3-ac2d-41eb-aa2a-1f6876f82595",
+      "name": "Agrupar_Mensajes_V2",
+      "position": [
+        688,
+        -368
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "==== Responde ÚNICAMENTE con un objeto JSON válido.\nTu objetivo es extraer datos del historial para actualizar Odoo.\n\n### REGLAS DE EXTRACCIÓN:\n1. NOMBRE: Busca el nombre real del humano. IGNORA la palabra \"Visitante\" o \"Invitado\" como nombre. Si el usuario dice \"Soy Juan\", el nombre es \"Juan\".\n2. CIUDAD: Extrae la ciudad si se menciona.\n3. CATEGORÍA: 'refiner' (sarro), 'purity' (beber), 'service' (filtros), 'general'.\n4. DIRECCIÓN: Para poder saber en donde se ubica en necesario tener la dirección en donde se realizará la visita.\n5. TELÉFONO: El número de telefono debe tener un formato valido para estados unidos.\n### ESTRUCTURA REQUERIDA:\n{\n  \"categoria\": \"refiner | purity | service | general\",\n  \"idioma\": \"Español | Inglés\",\n  \"resumen\": \"Breve descripción\",\n  \"nombre_detectado\": \"Nombre real o 'Invitado'\",\n  \"city\": \"Ciudad o 'unknown'\",\n  \"dirección\": \"Nro. Casa, Calle o 'unknown'\",\n  \"teléfono\": \"Número valido para US o 'unknow'\"\n}\n\n### HISTORIAL:\n{{ $json.body.body }}\n\nIMPORTANTE: NO CREES INFORMACIÓN QUE EL USUARIO NO HAYA SUMINISTRADO, LIMITATE A ANALIZAR LA CONVERSACIÓN Y EXTRAER  LA INFORMACIÓN SOLICITAD."
+      },
+      "id": "b70ad6d9-d2f6-490a-9f56-98644b19af1d",
+      "name": "IA_Analisis_Total",
+      "position": [
+        1136,
+        -368
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://elantar_odoo_dev:8069/n8n_bridge/chat_response",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \n  channel_id: $('Preparar_Datos_Especialista').item.json.res_id, \n  body: $json.output\n}) }}",
+        "options": {}
+      },
+      "id": "faa5ca01-12e2-4168-84c2-54e94ed38a9e",
+      "name": "Enviar_Respuesta_Odoo",
+      "position": [
+        2784,
+        -368
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "JNXqvGmRM2SaOzgl",
+          "name": "Soporte Tech"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const nodeIA = $node[\"IA_Analisis_Total\"];\n  const nodeWebhook = $node[\"Webhook\"];\n  const rawText = (nodeIA && nodeIA.json) ? (nodeIA.json.text || \"{}\") : \"{}\";\n  const webhookBody = (nodeWebhook && nodeWebhook.json && nodeWebhook.json.body) ? nodeWebhook.json.body : {};\n  \n  // Limpieza de Markdown y espacios\n  const cleanJson = rawText.replace(/```json/g, \"\").replace(/```/g, \"\").trim();\n  let ia = JSON.parse(cleanJson);\n\n  // Validamos que el nombre no sea literalmente \"Visitante\"\n  let nombreReal = ia.nombre_detectado;\n  if (nombreReal && (nombreReal.toLowerCase() === \"visitante\" || nombreReal.toLowerCase() === \"invitado\")) {\n      nombreReal = \"Invitado\"; \n  }\n\n  return [{\n    json: {\n      jsonrpc: \"2.0\",\n      params: {\n        channel_id: parseInt(webhookBody.res_id || 0),\n        specialist_id: \"bot\",\n        token: \"={{ $env.ELANTAR_BRIDGE_TOKEN }}\",\n        context_data: {\n          name: nombreReal,\n          city: ia.city || \"unknown\",\n          idioma: ia.idioma || \"Español\",\n          concerns: ia.resumen || \"Sin resumen\",\n          categoria: ia.categoria || \"general\",\n          last_update: new Date().toISOString()\n        }\n      }\n    }\n  }];\n} catch (error) {\n  return [{ json: { error: error.message, location: \"Parsear_IA\" } }];\n}"
+      },
+      "id": "458cb725-36f5-44c7-9ea0-c28a5cf4393a",
+      "name": "Parsear_IA",
+      "position": [
+        1488,
+        -368
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "manuales_elantar",
+          "mode": "list",
+          "cachedResultName": "manuales_elantar"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        2288,
+        64
+      ],
+      "id": "5803bf4d-b605-4b9a-b666-7539ec9fc65c",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "esvE4GTNsvKG8tCP",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "MANDATORY: Use this tool to retrieve specific technical instructions and step-by-step guides from the elantarOne documentation. You MUST call this tool before answering any user question about platform usage or configurations.",
+        "topK": 5
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolVectorStore",
+      "typeVersion": 1.1,
+      "position": [
+        2288,
+        -144
+      ],
+      "id": "6118b680-6941-468a-8c0e-499428f8bca9",
+      "name": "Consultar_Manuales"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite-preview",
+        "options": {
+          "maxOutputTokens": 2048,
+          "temperature": 0.2,
+          "topK": 5,
+          "topP": 1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        64
+      ],
+      "id": "d762ea20-cc5d-4e4e-851c-e4ede9b930e5",
+      "name": "Google Gemini Chat Model",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "HjxkwAV4gOZjBGxr",
+          "name": "Elantar Ventas"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1216,
+        -144
+      ],
+      "id": "bae7ca49-7c1b-42e1-af66-8bf8a16a7cd3",
+      "name": "Groq Chat Model1",
+      "credentials": {
+        "groqApi": {
+          "id": "nfpxWh3Y5sUHefoj",
+          "name": "Venta Elantar"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Based on the conversation {{ $json.history }} provided in the system message, respond to the user's latest message.",
+        "options": {
+          "systemMessage": "### ROLE\nYou are the \"elantarOne Expert Support Agent\". Your goal is to provide fast, accurate, and professional technical solutions regarding water treatment, equipment, and the elantarOne platform.\n\n### LANGUAGE PROTOCOL (CRITICAL)\n1. Detect the user's language from their latest message.\n2. ALWAYS respond in that SAME language (e.g., if the user writes in Spanish, reply in Spanish).\n3. Keep the tone professional and concise.\n\n### SOURCE OF TRUTH (CONTEXT)\nUse the following data as your ONLY source of information:\n- **CONVERSATION HISTORY:** {{ $json.history }}\n- **USER CONTEXT:** {{ JSON.stringify($json.context_data) }}\n- **TECHNICAL MANUALS:** (Accessed via Consultar_Manuales tool).\nDO NOT hallucinate. If the information is not in the history or the manuals, you MUST escalate.\n\n### OPERATIONAL RULES\n1. **TECHNICAL SEARCH:** For ANY question about what the user can do, edit, or configure, you MUST use `Consultar_Manuales`. Search specifically for \"Campos editables\" or \"User settings\". Do not escalate until you have confirmed the information is missing from the search results.\n2. **BREVITY:** Responses must be strictly under 3 lines. Go straight to the point.\n3. **NO FICTION:** Never invent ticket numbers, tracking codes, or instructions not found in manuals.\n4. **ESCALATION WORKFLOW:** Use `Escalar_a_Soporte_Humano1` if the answer is not in the manuals.\n   - **PRE-REQUISITE:** Check HISTORY for Name and Email. \n   - IF MISSING: Ask: \"Para ayudarte con un especialista, por favor confirma tu nombre y correo.\"\n   - IF PRESENT: Execute tool and confirm.\n\n### BEHAVIOR\nBe direct. No filler phrases. \nCRITICAL: Do not explain your thought process. Do not output internal reasoning. Give the solution directly in the requested language.",
+          "maxIterations": 6
+        }
+      },
+      "id": "4a13ad29-4bba-4f84-bd60-b72ec3a42765",
+      "name": "Agente de Soporte Tech",
+      "position": [
+        2304,
+        -368
+      ],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7
+    },
+    {
+      "parameters": {
+        "description": "Descripción: Úsala para escalar a un humano y crear un ticket. IMPORTANTE: Solo úsala si ya conoces el nombre y el correo del usuario. Si no los tienes, pídela primero en el chat.",
+        "source": "=database",
+        "workflowId": {
+          "__rl": true,
+          "value": "eCXKLtTqfKekvQJe",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/eCXKLtTqfKekvQJe",
+          "cachedResultName": "Sub_Escalamiento_Support_Tech"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "asunto": "={{ $fromAI('asunto', 'Problema detectado por IA', 'string') }}",
+            "channel_id": "={{ $json.res_id }}",
+            "descripcion": "={{ $fromAI('descripcion', 'Resumen detallado de la conversación', 'string') }}",
+            "name": "={{ $fromAI('nombre', 'Nombre del cliente', 'string') }}",
+            "email": "={{ $fromAI('email', 'Correo del cliente', 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "asunto",
+              "displayName": "asunto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "descripcion",
+              "displayName": "descripcion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "channel_id",
+              "displayName": "channel_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        2576,
+        -144
+      ],
+      "id": "13bfedae-9e2d-406b-b01f-3dd7d9523e2f",
+      "name": "Escalar_a_Soporte_Humano1"
+    },
+    {
+      "parameters": {
+        "content": "### 🚀 elantarOne Support Agent - Manual Técnico\n\n**1. Lógica de Entrada y Agrupación**\n- **Webhook**: Único punto de entrada desde Odoo (`/suport_tech`). \n- **Debounce (10s)**: Espera ráfagas de mensajes del usuario para agruparlos en una sola consulta al LLM. Esto optimiza el consumo de tokens y da coherencia a la respuesta.\n- **Historial (Odoo V2)**: Recupera los últimos 80 mensajes del canal para mantener el contexto real (incluyendo mensajes de sistema).\n\n**2. IA de Análisis y Estado (Middleware)**\n- **IA_Analisis_Total**: Extrae de forma proactiva: Nombre, Ciudad, Categoría de interés (Sarro, Purity, etc.) e Idioma.\n- **Actualizar_Estado_Odoo**: Inyecta los datos detectados en el \"Bridge State\" de Odoo. Esto permite que el personal humano vea los datos en el CRM al abrir el ticket.\n\n**3. Cerebro AI (LangChain Agent)**\n- **Modelo**: Gemini 3.1 Flash.\n- **Memoria**: Sin memoria interna (Stateless). Toda la historia se inyecta desde \"Agrupar_Mensajes_V2\".\n- **Herramientas**:\n  - `Consultar_Manuales`: Búsqueda semántica en Qdrant (Colección: manuales_elantar).\n  - `Escalar_a_Soporte_Humano`: Activa el sub-flujo de tickets. **REGLA**: Solo se usa tras obtener Nombre y Email.\n\n**4. Mantenimiento y URLs**\n- **Internas**: Usa `http://n8n:5678` para Odoo y `http://elantar_odoo_dev:8069` para n8n -> Odoo.\n- **Respuesta**: El nodo `Enviar_Respuesta_Odoo` usa `JSON.stringify` para garantizar compatibilidad con el endpoint de chat de Odoo.\n",
+        "height": 544,
+        "width": 976
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -64
+      ],
+      "id": "1f8b79ec-4993-4820-b8fa-2552e03e1b64",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:3b",
+        "options": {
+          "temperature": 0.2,
+          "topK": -1,
+          "topP": 0.9,
+          "keepAlive": "3600h",
+          "lowVram": false,
+          "numCtx": 1024,
+          "numPredict": 150,
+          "numThread": 5,
+          "repeatPenalty": 1.2,
+          "useMLock": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        16,
+        176
+      ],
+      "id": "5666d01c-3c62-4bcc-b580-9b524f896da9",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xJKXNYJArClh2iuJ",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        2368,
+        272
+      ],
+      "id": "a676f84a-0f20-49e9-9cf8-8d565f6aa6fe",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xJKXNYJArClh2iuJ",
+          "name": "Ollama account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Debounce_Wait_10s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tiene_Especialista": {
+      "main": [
+        [
+          {
+            "node": "IA_Analisis_Total",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar_Estado_Odoo": {
+      "main": [
+        [
+          {
+            "node": "Preparar_Datos_Especialista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar_Datos_Especialista": {
+      "main": [
+        [
+          {
+            "node": "Agente de Soporte Tech",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debounce_Wait_10s": {
+      "main": [
+        [
+          {
+            "node": "Obtener_Mensajes_Odoo_V2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener_Mensajes_Odoo_V2": {
+      "main": [
+        [
+          {
+            "node": "Agrupar_Mensajes_V2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agrupar_Mensajes_V2": {
+      "main": [
+        [
+          {
+            "node": "Tiene_Especialista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA_Analisis_Total": {
+      "main": [
+        [
+          {
+            "node": "Parsear_IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear_IA": {
+      "main": [
+        [
+          {
+            "node": "Actualizar_Estado_Odoo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "Consultar_Manuales",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar_Manuales": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente de Soporte Tech",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente de Soporte Tech",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Consultar_Manuales",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "IA_Analisis_Total",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente de Soporte Tech": {
+      "main": [
+        [
+          {
+            "node": "Enviar_Respuesta_Odoo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalar_a_Soporte_Humano1": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente de Soporte Tech",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        []
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8d92162fb65bdb9434e701c86866da809de199582977c7568f8547c6013941e5"
+  }
+}
