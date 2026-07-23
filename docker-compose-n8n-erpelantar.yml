@@ -60,6 +60,7 @@ services:
       - N8N_FILESYSTEM_PATH_WHITELIST=/opt/odoo-backup/backupszip/
       - N8N_BLOCK_NODES=
       - NODES_EXCLUDE=[]
+      - N8N_PUSH_BACKEND=websocket
     env_file:
       - .env
     depends_on:
