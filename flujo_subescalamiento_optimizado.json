@@ -1,0 +1,221 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://elantar_odoo_dev:8069/n8n_bridge/update_state",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"jsonrpc\": \"2.0\",\n  \"params\": {\n    \"channel_id\": {{ $('input').item.json.channel_id }},\n    \"specialist_id\": \"human\",\n    \"token\": \"{{ $env.ELANTAR_BRIDGE_TOKEN }}\"\n  }\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        720,
+        384
+      ],
+      "id": "1858ed13-ae29-473c-9a19-2e773b91c3f9",
+      "name": "HTTP Request - Silenciar",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "JNXqvGmRM2SaOzgl",
+          "name": "Soporte Tech"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "custom",
+        "customResource": "helpdesk.ticket",
+        "fieldsToCreateOrUpdate": {
+          "fields": [
+            {
+              "fieldName": "partner_name",
+              "fieldValue": "={{ $('input').item.json.name || 'Usuario Interno' }}"
+            },
+            {
+              "fieldName": "partner_email",
+              "fieldValue": "={{ $('input').item.json.email || '' }}"
+            },
+            {
+              "fieldName": "name",
+              "fieldValue": "={{ $('input').item.json.asunto }}"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "={{ $('input').item.json.descripcion }} \n\n🔗 Enlace a la conversación: https://dev.erpelantar.com/odoo/livechat/5/action-735/{{ $('input').item.json.channel_id }}/action-mail.action_discuss"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.odoo",
+      "typeVersion": 1,
+      "position": [
+        496,
+        384
+      ],
+      "id": "a4d9c0f5-b3ca-4f06-8701-19c7f0fe4e15",
+      "name": "Request - Ticket",
+      "credentials": {
+        "odooApi": {
+          "id": "d1UPyjI2DsnZs68u",
+          "name": "User DEV Agente Elantar"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "asunto"
+            },
+            {
+              "name": "descripcion"
+            },
+            {
+              "name": "channel_id"
+            },
+            {
+              "name": "name"
+            },
+            {
+              "name": "email"
+            }
+          ]
+        }
+      },
+      "id": "c055762a-8fe7-4141-a639-df2372f30060",
+      "typeVersion": 1.1,
+      "name": "input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        272,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "custom",
+        "customResource": "helpdesk.ticket",
+        "operation": "get",
+        "customResourceId": "={{ $('Request - Ticket').item.json.id }}",
+        "options": {
+          "fieldsList": [
+            "number"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.odoo",
+      "typeVersion": 1,
+      "position": [
+        912,
+        384
+      ],
+      "id": "75ad849a-2a98-46f5-aed9-86e7ca009d74",
+      "name": "Request - Ticket1",
+      "credentials": {
+        "odooApi": {
+          "id": "d1UPyjI2DsnZs68u",
+          "name": "User DEV Agente Elantar"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://elantar_odoo_dev:8069/n8n_bridge/chat_response",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \n  channel_id: $('input').item.json.channel_id, \n  body: \"✅ *Ticket creado con éxito.*\\n\\nTu número de seguimiento es: **#\" + $json.number + \"**\\n\\nHe transferido esta conversación al equipo técnico.\"\n}) }}\n",
+        "options": {}
+      },
+      "id": "0cea4e37-83df-4557-ad4b-2173a8979066",
+      "name": "Enviar_Respuesta_Odoo",
+      "position": [
+        1136,
+        384
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "JNXqvGmRM2SaOzgl",
+          "name": "Soporte Tech"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "### 🛠️ Sub-Escalamiento Support Tech - Uso Interno\n\n**Propósito**: Crear un ticket en el Helpdesk de Odoo y transferir la conversación desde el Bot hacia un técnico humano.\n\n**Flujo de Proceso:**\n1. **input**: Recibe los datos (Asunto, Descripción, ID del canal y los datos del Funcionario Interno inyectados por el Agente Principal).\n2. **Request - Ticket**: Crea el `helpdesk.ticket` usando el nombre del funcionario interno.\n3. **Silenciar (HTTP Request)**: Cambia el `specialist_id` a `human`. Esto silencia al bot en este canal de Odoo.\n4. **Recuperación**: Extrae el número de ticket (`number`) generado por Odoo.\n5. **Notificación Final**: Informa al funcionario en el chat que su solicitud fue enviada exitosamente.",
+        "height": 384,
+        "width": 576,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        624,
+        608
+      ],
+      "id": "31427fb1-4ea4-40d8-ac61-02d4b995f985",
+      "name": "Sticky Note"
+    }
+  ],
+  "connections": {
+    "HTTP Request - Silenciar": {
+      "main": [
+        [
+          {
+            "node": "Request - Ticket1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request - Ticket": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Silenciar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "input": {
+      "main": [
+        [
+          {
+            "node": "Request - Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request - Ticket1": {
+      "main": [
+        [
+          {
+            "node": "Enviar_Respuesta_Odoo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8d92162fb65bdb9434e701c86866da809de199582977c7568f8547c6013941e5"
+  }
+}

@@ -2,9 +2,12 @@ version: "3.8"
 
 services:
   postgres:
-    container_name: postgres
+    container_name: n8n-db-erpelantar
     image: postgres:16.9
     restart: always
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - /root/app/init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
@@ -22,23 +25,70 @@ services:
     image: n8nio/n8n:latest
     container_name: n8n
     restart: always
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.n8n.rule=Host(`n8n.erpelantar.com`)"
       - "traefik.http.routers.n8n.entrypoints=websecure"
       - "traefik.http.routers.n8n.tls.certresolver=letsencrypt"
       - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+      # Security Headers
+      - "traefik.http.middlewares.n8n-secure-headers.headers.customFrameOptionsValue=SAMEORIGIN"
+      - "traefik.http.middlewares.n8n-secure-headers.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.n8n-secure-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.n8n-secure-headers.headers.forceSTSHeader=true"
+      - "traefik.http.middlewares.n8n-secure-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.n8n-secure-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.n8n-secure-headers.headers.stsPreload=true"
+      - "traefik.http.middlewares.n8n-secure-headers.headers.customResponseHeaders.X-Powered-By="
+      - "traefik.http.middlewares.n8n-secure-headers.headers.customResponseHeaders.Server="
+      - "traefik.http.routers.n8n.middlewares=n8n-secure-headers"
     ports:
       - "5678:5678"
     networks:
       - elantar_net
     volumes:
       - n8n_data:/home/node/.n8n
+      - /opt/odoo-backup:/opt/odoo-backup:ro
+      - /var/www/html/n8n-docker/n8n_data/.n8n-files:/home/node/.n8n-files
+    environment:
+      - N8N_BLOCK_FS_READ_ACCESS=false
+      - N8N_BLOCK_FS_WRITE_ACCESS=false
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
+      - N8N_FILESYSTEM_PATH_WHITELIST=/opt/odoo-backup/backupszip/
+      - N8N_BLOCK_NODES=
+      - NODES_EXCLUDE=[]
+      - N8N_PUSH_BACKEND=websocket
     env_file:
       - .env
     depends_on:
       postgres:
         condition: service_healthy
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: always
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    environment:
+      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY}
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - elantar_net
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: always
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - elantar_net
 
 networks:
   elantar_net:
@@ -47,3 +97,5 @@ networks:
 volumes:
   n8n_data:
   postgres_data:
+  qdrant_data:
+  ollama_data:
