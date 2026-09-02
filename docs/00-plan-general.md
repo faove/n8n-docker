@@ -61,7 +61,7 @@ que la ficha de una etapa puntual documente una excepción.
 
 | # | Subagente origen | Workflow n8n | Estado |
 |---|---|---|---|
-| 1 | `reels-motion-designer.md` | `workflows/agentes-content-engine/reels-motion-designer.json` | 🟡 en curso — ver [01-reels-motion-designer.md](01-reels-motion-designer.md) |
+| 1 | `reels-motion-designer.md` | `workflows/agentes-content-engine/reels-motion-designer.json` | ✅ importado y probado en `n8n.devnodo.com` — ver [01-reels-motion-designer.md](01-reels-motion-designer.md) |
 | 2 | `youtube-script-write.md` | `workflows/agentes-content-engine/youtube-script-write.json` | ⚪ pendiente |
 | 3 | `youtube-title-generator.md` | `workflows/agentes-content-engine/youtube-title-generator.json` | ⚪ pendiente |
 | 4 | `youtube-thumbnail-prompter.md` | `workflows/agentes-content-engine/youtube-thumbnail-prompter.json` | ⚪ pendiente |

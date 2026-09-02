@@ -104,21 +104,46 @@ JSON parseable).
 
 ## Pendientes / pasos manuales antes de poder probarlo
 
-- [ ] Crear en `n8n.devnodo.com` (o en la instancia local) una credencial **HTTP
-      Header Auth** llamada `Anthropic API Key` con header `x-api-key: <API key real>`.
-- [ ] Re-asignar esa credencial en el nodo `Claude API - Reels Storyboard` al
-      importar el JSON (el `credentials.id` actual es un placeholder
-      `REEMPLAZAR_EN_N8N`, no apunta a nada real).
-- [ ] Importar `workflows/agentes-content-engine/reels-motion-designer.json` en n8n
-      (local o `n8n.devnodo.com`) y probar con el payload de ejemplo de arriba.
+- [x] Crear en `n8n.devnodo.com` una credencial **HTTP Header Auth** con header
+      `x-api-key: <API key real>` (nombre final en n8n: `Header Auth account`,
+      id `ivahrU1eTJtVFp4J`).
+- [x] Re-asignar esa credencial en el nodo `Claude API - Reels Storyboard`.
+- [x] Importar `workflows/agentes-content-engine/reels-motion-designer.json` en
+      `n8n.devnodo.com` (workflow id `9OLyb3gqijYNLgGT`) y probar con el payload de
+      ejemplo.
 - [ ] Validar que el HTML de cada escena renderiza razonablemente en 9:16 (abrir uno
-      de los HTML devueltos en el navegador).
+      de los HTML devueltos en el navegador) — probado solo por payload/JSON, falta
+      revisión visual.
 - [ ] Decidir si el `max_tokens: 8000` alcanza para guiones con muchas escenas o si
       conviene ajustar por longitud del brief.
 
+## Bugs encontrados y corregidos durante la prueba (2026-09-02)
+
+- **JSON sin `id` de nivel superior**: el `n8n import:workflow` de esta versión
+  (2.36.9) lo exige; sin él fallaba con `null value in column "id"`. Se agregó un id
+  generado (`9OLyb3gqijYNLgGT`).
+- **Nodo `Claude API - Reels Storyboard` sin manejo de errores**: cualquier respuesta
+  no-2xx de Anthropic (ej. 401) rompía toda la ejecución y el webhook devolvía vacío,
+  en vez del `{ok:false, error:...}` que ya sabe armar `Extraer Resultado`. Se agregó
+  `options.response.response.neverError: true` para que el nodo pase la respuesta de
+  error en vez de tirar la ejecución.
+- **Credencial mal configurada por error de UI**: se cargó el nombre del header como
+  el título de la credencial (`devnodo-key`) en vez de en el campo interno `Name`
+  (que es el header HTTP real). Corregido a `Name: x-api-key`.
+- **Password del rol Postgres `n8n` desincronizada** (bug de infra, no del workflow):
+  `DB_POSTGRESDB_PASSWORD` (usada por el contenedor n8n) y `POSTGRES_NON_ROOT_PASSWORD`
+  (usada por `init-data.sh` al crear el rol la primera vez) no coincidían en el `.env`
+  de `/srv/projects/n8n-devnodo` en el servidor — causaba `password authentication
+  failed for user "n8n"` intermitente en cualquier ejecución de n8n, no solo en este
+  workflow. Corregido con `ALTER ROLE` para sincronizar el password real del rol con
+  el de `.env`. Vale la pena revisar ese `.env` si en el futuro se edita alguna de las
+  dos variables sin correr el `ALTER ROLE` correspondiente (postgres solo aplica la
+  contraseña del rol al crear el volumen la primera vez).
+
 ## Estado
 
-🟡 **En curso** — workflow diseñado y generado en el repo, todavía **no importado ni
-probado** contra la API real de Claude ni contra `n8n.devnodo.com`. Falta la parte
-manual de credenciales (no se puede automatizar desde acá) y una corrida de prueba
-real antes de marcarlo como hecho en `docs/00-plan-general.md`.
+✅ **Importado y probado en `n8n.devnodo.com`** — workflow activo (id
+`9OLyb3gqijYNLgGT`), credencial real conectada, probado end-to-end contra la API real
+de Claude con el payload de ejemplo, respuesta `ok:true` estable en corridas
+sucesivas. Queda pendiente la revisión visual del HTML de las escenas en navegador y
+la decisión sobre `max_tokens`.
