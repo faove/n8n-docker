@@ -79,8 +79,8 @@
       "name": "Claude API - Reels Storyboard",
       "credentials": {
         "httpHeaderAuth": {
-          "id": "REEMPLAZAR_EN_N8N",
-          "name": "Anthropic API Key"
+          "id": "ivahrU1eTJtVFp4J",
+          "name": "Header Auth account"
         }
       }
     },
@@ -191,5 +191,6 @@
   },
   "settings": {
     "executionOrder": "v1"
-  }
+  },
+  "active": true
 }
