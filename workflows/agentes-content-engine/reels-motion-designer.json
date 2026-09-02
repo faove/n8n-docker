@@ -67,7 +67,13 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json.claude_request }}",
-        "options": {}
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
