@@ -1,0 +1,194 @@
+{
+  "name": "Agentes Content Engine - Reels Motion Designer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "reels-motion-designer",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -400,
+        0
+      ],
+      "id": "0963eeb7-61c0-47f1-b468-6001cf917920",
+      "name": "Webhook",
+      "webhookId": "0099761c-f91e-4d07-9787-629c435fbae8"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normaliza el body del webhook al contrato de entrada esperado.\n// Contrato esperado (todo excepto `brief` es opcional; lo que falte se marca pendiente):\n// {\n//   brief: string (obligatorio, pedido en lenguaje natural),\n//   cliente: { nombre, slug },\n//   marca: { tono, voz, visual: { paleta: [], tipografia, estilo }, claims_aprobados: [] },\n//   estrategia: { pilares_contenido: [], oferta, etapa_funnel }\n// }\n\nconst body = $json.body || $json;\n\nif (!body.brief || typeof body.brief !== 'string' || !body.brief.trim()) {\n  throw new Error('Falta \"brief\" en el body del webhook: el pedido en lenguaje natural es obligatorio.');\n}\n\nconst marca = body.marca || {};\nconst visual = marca.visual || {};\nconst estrategia = body.estrategia || {};\nconst cliente = body.cliente || {};\n\nconst camposFaltantes = [];\nif (!marca.tono) camposFaltantes.push('marca.tono');\nif (!visual.paleta || !visual.paleta.length) camposFaltantes.push('marca.visual.paleta');\nif (!visual.tipografia) camposFaltantes.push('marca.visual.tipografia');\nif (!marca.claims_aprobados || !marca.claims_aprobados.length) camposFaltantes.push('marca.claims_aprobados');\n\nreturn {\n  brief: body.brief.trim(),\n  cliente: {\n    nombre: cliente.nombre || null,\n    slug: cliente.slug || null,\n  },\n  marca: {\n    tono: marca.tono || null,\n    voz: marca.voz || null,\n    visual: {\n      paleta: visual.paleta || [],\n      tipografia: visual.tipografia || null,\n      estilo: visual.estilo || null,\n    },\n    claims_aprobados: marca.claims_aprobados || [],\n  },\n  estrategia: {\n    pilares_contenido: estrategia.pilares_contenido || [],\n    oferta: estrategia.oferta || null,\n    etapa_funnel: estrategia.etapa_funnel || null,\n  },\n  campos_faltantes_input: camposFaltantes,\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        0
+      ],
+      "id": "2a718c62-6056-4d12-8ca0-60253ab2cc74",
+      "name": "Normalizar Input"
+    },
+    {
+      "parameters": {
+        "jsCode": "const SYSTEM_PROMPT = \"Eres el especialista en motion / Reels de un sistema de generacion de contenido para redes sociales multi-cliente. Tu unica responsabilidad es convertir un brief y el contexto de marca que recibes en el mensaje del usuario en:\\n\\n1. Un guion + shot list en Markdown, listo para revision humana.\\n2. Un storyboard animado por escenas en HTML/CSS autocontenido (formato vertical 9:16, sin dependencias externas, animado con @keyframes) que sirva de previsualizacion de ritmo y movimiento, no un video final.\\n\\nNo generas video renderizado ni publicas nada: el resultado es solo para revision humana antes de produccion.\\n\\nReglas:\\n- Nunca inventes tono, paleta, tipografia o claims de marca que no esten en el contexto recibido. Si falta algun dato de marca necesario, declaralo en el campo `pendientes` de tu respuesta en vez de inventarlo.\\n- El guion debe incluir: Hook (primeros 1-2s, la razon para no hacer scroll), escenas numeradas (descripcion visual, texto en pantalla, voz en off/copy, duracion aproximada), ritmo/pacing (cortes por segundo, transicion sugerida entre escenas), CTA final alineado a la etapa de funnel indicada (si se indica en el contexto), mood de musica/SFX sugerido (no un archivo concreto).\\n- Cada escena del guion debe tener tambien su HTML de previsualizacion correspondiente en el array `escenas`: un documento HTML autocontenido (CSS embebido en un <style>, sin dependencias externas ni CDNs) con un contenedor de aspect-ratio 9:16 que anime la composicion aproximada de esa escena con @keyframes/transiciones - suficiente para transmitir timing y movimiento, no un diseno final de arte.\\n- Usa la paleta/tipografia de marca recibida en el contexto si esta disponible; si no esta disponible, usa una paleta neutra de marcador de posicion y declaralo en `pendientes`.\\n- En `fuentes`, cita explicitamente que parte del contexto recibido (brand kit, estrategia, brief de cliente) respalda el tono y los claims usados.\\n- Responde siempre usando la tool `deliver_reel_storyboard` - nunca respondas en texto plano fuera de la tool.\";\n\n// Arma el mensaje de usuario para Claude a partir del input normalizado,\n// y arma el request completo (incluyendo tool-use forzado) para el nodo HTTP Request.\n\nconst d = $json;\n\nconst contextoLines = [];\ncontextoLines.push(`Cliente: ${d.cliente.nombre || 'no especificado'}`);\nif (d.marca.tono) contextoLines.push(`Tono de marca: ${d.marca.tono}`);\nif (d.marca.visual.paleta && d.marca.visual.paleta.length) contextoLines.push(`Paleta: ${d.marca.visual.paleta.join(', ')}`);\nif (d.marca.visual.tipografia) contextoLines.push(`Tipografia: ${d.marca.visual.tipografia}`);\nif (d.marca.visual.estilo) contextoLines.push(`Estilo visual: ${d.marca.visual.estilo}`);\nif (d.marca.claims_aprobados && d.marca.claims_aprobados.length) contextoLines.push(`Claims aprobados: ${d.marca.claims_aprobados.join(' | ')}`);\nif (d.estrategia.pilares_contenido && d.estrategia.pilares_contenido.length) contextoLines.push(`Pilares de contenido: ${d.estrategia.pilares_contenido.join(', ')}`);\nif (d.estrategia.oferta) contextoLines.push(`Oferta vigente: ${d.estrategia.oferta}`);\nif (d.estrategia.etapa_funnel) contextoLines.push(`Etapa de funnel objetivo: ${d.estrategia.etapa_funnel}`);\nif (d.campos_faltantes_input.length) contextoLines.push(`Campos de marca NO provistos (tratalos como pendiente, no los inventes): ${d.campos_faltantes_input.join(', ')}`);\n\nconst userMessage = `Pedido del usuario:\\n${d.brief}\\n\\nContexto de marca/cliente disponible:\\n${contextoLines.join('\\n')}`;\n\nconst tool = {\n  name: 'deliver_reel_storyboard',\n  description: 'Entrega el guion en Markdown y el storyboard animado por escenas de un Reel.',\n  input_schema: {\n    type: 'object',\n    properties: {\n      guion_markdown: {\n        type: 'string',\n        description: 'Guion completo en Markdown: Hook, escenas numeradas, ritmo/pacing, CTA final, musica/SFX, fuentes.',\n      },\n      escenas: {\n        type: 'array',\n        description: 'Una entrada por cada escena numerada del guion.',\n        items: {\n          type: 'object',\n          properties: {\n            numero: { type: 'integer' },\n            titulo: { type: 'string' },\n            html: {\n              type: 'string',\n              description: 'HTML autocontenido 9:16, CSS embebido en <style>, animado con @keyframes, sin dependencias externas.',\n            },\n          },\n          required: ['numero', 'html'],\n        },\n      },\n      pendientes: {\n        type: 'array',\n        items: { type: 'string' },\n        description: 'Datos de marca que faltaron y se marcaron como pendientes en vez de inventarse. Array vacio si no hay ninguno.',\n      },\n      fuentes: {\n        type: 'array',\n        items: { type: 'string' },\n        description: 'Que parte del contexto recibido respalda el tono/claims usados.',\n      },\n    },\n    required: ['guion_markdown', 'escenas', 'pendientes', 'fuentes'],\n  },\n};\n\nconst claude_request = {\n  model: 'claude-sonnet-4-5',\n  max_tokens: 8000,\n  system: SYSTEM_PROMPT,\n  messages: [\n    { role: 'user', content: userMessage },\n  ],\n  tools: [tool],\n  tool_choice: { type: 'tool', name: 'deliver_reel_storyboard' },\n};\n\nreturn { claude_request, cliente: d.cliente, brief: d.brief };\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        40,
+        0
+      ],
+      "id": "91e3e46e-e5e8-4ffd-9357-6e46e9c97a13",
+      "name": "Construir Prompt"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.claude_request }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        260,
+        0
+      ],
+      "id": "6a12e668-bed8-404e-a127-0b93b9fafffe",
+      "name": "Claude API - Reels Storyboard",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REEMPLAZAR_EN_N8N",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrae el bloque tool_use de la respuesta de la API de Claude y arma la respuesta final del webhook.\n\nconst response = $json;\nconst cliente = $('Construir Prompt').first().json.cliente;\nconst brief = $('Construir Prompt').first().json.brief;\n\nif (response.type === 'error') {\n  return {\n    ok: false,\n    error: response.error && response.error.message ? response.error.message : 'Error desconocido llamando a la API de Claude.',\n  };\n}\n\nconst toolUseBlock = (response.content || []).find(\n  (block) => block.type === 'tool_use' && block.name === 'deliver_reel_storyboard'\n);\n\nif (!toolUseBlock) {\n  return {\n    ok: false,\n    error: 'Claude no devolvio el resultado estructurado esperado (tool_use \"deliver_reel_storyboard\"). stop_reason: ' + response.stop_reason,\n  };\n}\n\nconst result = toolUseBlock.input;\n\nreturn {\n  ok: true,\n  cliente,\n  brief,\n  guion_markdown: result.guion_markdown,\n  escenas: result.escenas,\n  pendientes: result.pendientes || [],\n  fuentes: result.fuentes || [],\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "id": "f8912a84-ec6e-4704-aab1-a7cf6ceaae1f",
+      "name": "Extraer Resultado"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        700,
+        0
+      ],
+      "id": "71eef414-9dda-415b-b893-307ae3f08a52",
+      "name": "Responder Webhook"
+    },
+    {
+      "parameters": {
+        "content": "## Reels Motion Designer (n8n)\\n\\nOrigen: `.claude/agents/reels-motion-designer.md` (OtroGalloMarketing).\\n\\nAntes de activar:\\n1. Crear credencial HTTP Header Auth en n8n llamada `Anthropic API Key` con header `x-api-key: <tu API key de Anthropic>`.\\n2. Re-asignar esa credencial en el nodo `Claude API - Reels Storyboard` (el id actual es un placeholder).\\n3. Probar con un POST a `/webhook/reels-motion-designer` (ver docs/01-reels-motion-designer.md para el payload de ejemplo).\\n\\nSin integracion con Claude Design (DesignSync): los HTML de las escenas vienen en la respuesta del webhook, no se sincronizan a ningun proyecto.",
+        "height": 280,
+        "width": 460
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -320
+      ],
+      "id": "a8ad7835-2dde-419e-9417-6d1a71aa157d",
+      "name": "Sticky Note"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Input": {
+      "main": [
+        [
+          {
+            "node": "Construir Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir Prompt": {
+      "main": [
+        [
+          {
+            "node": "Claude API - Reels Storyboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API - Reels Storyboard": {
+      "main": [
+        [
+          {
+            "node": "Extraer Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Resultado": {
+      "main": [
+        [
+          {
+            "node": "Responder Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "generado-localmente"
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
