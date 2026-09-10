@@ -54,6 +54,7 @@ services:
       - /opt/odoo-backup:/opt/odoo-backup:ro
       - /var/www/html/n8n-docker/n8n_data/.n8n-files:/home/node/.n8n-files
     environment:
+      - NODE_OPTIONS=--dns-result-order=ipv4first
       - N8N_BLOCK_FS_READ_ACCESS=false
       - N8N_BLOCK_FS_WRITE_ACCESS=false
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
